@@ -5,7 +5,61 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>EGamer Server</title>
   <style>
-    /* ... نفس التنسيق السابق ... */
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      flex-direction: column;
+      background-image: url('<%= backgroundImageURL %>'); /* إضافة رابط الصورة هنا */
+      background-size: cover;
+      background-position: center;
+    }
+    .form-container {
+      background-color: rgba(255, 255, 255, 0.8); /* إضافة شفافية لجعل النص قابل للقراءة */
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+      width: 320px;
+    }
+    h2 {
+      text-align: center;
+      color: #333;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    .forgot-password {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    .option-container {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    .footer {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 14px;
+      color: #777;
+    }
   </style>
 </head>
 <body>
@@ -41,13 +95,8 @@
         <option value="admin">Admin</option>
         <option value="superAdmin">Super Admin</option>
       </select>
+      <input type="email" id="registerEmail" placeholder="Email" />
       <button onclick="register()">Register</button>
-    </div>
-
-    <!-- Admin Request Form -->
-    <div id="adminRequestForm" style="display:none;">
-      <textarea id="reason" placeholder="Reason for becoming admin"></textarea>
-      <button onclick="submitAdminRequest()">Submit Admin Request</button>
     </div>
   </div>
 
@@ -56,34 +105,6 @@
   </div>
 
   <script>
-    // Toggle between Login and Register Form
-    function toggleForm(formType) {
-      if (formType === 'login') {
-        document.getElementById('loginForm').style.display = 'block';
-        document.getElementById('registerForm').style.display = 'none';
-        document.getElementById('adminRequestForm').style.display = 'none';
-      } else if (formType === 'register') {
-        document.getElementById('registerForm').style.display = 'block';
-        document.getElementById('loginForm').style.display = 'none';
-        document.getElementById('adminRequestForm').style.display = 'none';
-      }
-    }
-
-    // Submit Admin Request
-    async function submitAdminRequest() {
-      const reason = document.getElementById('reason').value;
-
-      const response = await fetch('/requestAdmin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: 'userIdHere', reason })
-      });
-
-      const data = await response.json();
-      alert(data.message);
-    }
-
-    // تسجيل الدخول
     async function login() {
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
@@ -100,27 +121,26 @@
         alert(data.message);
       } else {
         alert('Login successful');
-        if (role === 'user') {
-          document.getElementById('adminRequestForm').style.display = 'block';
-        }
       }
     }
 
-    // تسجيل مستخدم
     async function register() {
       const username = document.getElementById('registerUsername').value;
       const password = document.getElementById('registerPassword').value;
       const discordUsername = document.getElementById('discordUsername').value;
+      const email = document.getElementById('registerEmail').value;
       const role = document.getElementById('registerRole').value;
 
       const response = await fetch('/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, discordUsername, role })
+        body: JSON.stringify({ username, password, discordUsername, role, email })
       });
 
       const data = await response.json();
-      alert(data.message);
+      if (data.message) {
+        alert(data.message);
+      }
     }
   </script>
 </body>
