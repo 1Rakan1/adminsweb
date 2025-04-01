@@ -1,110 +1,95 @@
 import express from 'express';
-import dotenv from 'dotenv';
-import bodyParser from 'body-parser';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
-import User from './models/user.js'; // تأكد من استيراد نموذج المستخدم
+import User from './models/user.js';
+import { randomInt } from 'crypto';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 22782;
+app.use(express.json());
 
-app.use(bodyParser.json());
-
-// الاتصال بقاعدة البيانات MongoDB
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
-
-// عند تشغيل السيرفر، تحقق من وجود سوبر أدمن، وإذا لم يكن موجودًا، أنشئه
-mongoose.connection.once('open', async () => {
-  const superAdmin = await User.findOne({ username: 'rakanm2' });
-
-  if (!superAdmin) {
-    const hashedPassword = bcrypt.hashSync('bd2w56ra', 10);
-    const newSuperAdmin = new User({
-      username: 'rakanm2',
-      password: hashedPassword,
-      discordUsername: 'rakanm2_discord',
-      role: 'superAdmin',
-      emailVerified: true,
-      verificationCode: null,
-    });
-
-    await newSuperAdmin.save();
-    console.log('Super Admin account created: rakanm2');
-  }
-});
+let verificationCode = '';  // حفظ كود التحقق مؤقتًا
 
 // تسجيل مستخدم جديد
 app.post('/register', async (req, res) => {
-  const { username, password, discordUsername, role, email } = req.body;
+  const { username, password, discordUsername, email, role } = req.body;
 
-  if (!username || !password || !discordUsername || !role || !email) {
+  if (!username || !password || !discordUsername || !email || !role) {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
-  const userExists = await User.findOne({ username });
-
-  if (userExists) {
-    return res.status(400).json({ message: 'Username already exists' });
+  const existingUser = await User.findOne({ $or: [{ username }, { email }] });
+  if (existingUser) {
+    return res.status(400).json({ message: 'Username or email already exists' });
   }
 
   const hashedPassword = bcrypt.hashSync(password, 10);
-
   const newUser = new User({
     username,
     password: hashedPassword,
     discordUsername,
-    role,
     email,
-    emailVerified: false,
-    verificationCode: Math.floor(100000 + Math.random() * 900000),  // توليد كود تحقق من 6 أرقام
+    role,
   });
 
-  await newUser.save();
+  try {
+    await newUser.save();
+    res.status(201).json({ message: 'User registered successfully' });
 
-  // إرسال كود التحقق عبر البريد الإلكتروني
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
+    // إرسال بريد إلكتروني للمستخدم
+    verificationCode = randomInt(100000, 999999).toString();  // توليد كود تحقق عشوائي
 
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: email,
-    subject: 'Email Verification Code',
-    text: `Your verification code is: ${newUser.verificationCode}`,
-  };
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
 
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      return res.status(500).json({ message: 'Error sending verification email' });
-    }
-    res.status(200).json({ message: 'User registered successfully. Please check your email for verification.' });
-  });
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Verify your EGamer Account',
+      text: `Your verification code is: ${verificationCode}`,
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.log('Error sending email:', error);
+      } else {
+        console.log('Email sent:', info.response);
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error saving user' });
+  }
+});
+
+// التحقق من كود التحقق
+app.post('/verify-code', (req, res) => {
+  const { verificationCode: userCode } = req.body;
+
+  if (userCode === verificationCode) {
+    res.status(200).json({ message: 'Verification successful' });
+  } else {
+    res.status(400).json({ message: 'Invalid verification code' });
+  }
 });
 
 // تسجيل الدخول
 app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, role } = req.body;
+  const user = await User.findOne({ username, role });
 
-  const user = await User.findOne({ username });
-
-  if (!user || !bcrypt.compareSync(password, user.password)) {
-    return res.status(401).json({ message: 'Invalid credentials' });
+  if (!user) {
+    return res.status(400).json({ message: 'Invalid username or role' });
   }
 
-  const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
-  res.json({ token });
-});
-
-// تشغيل الخادم
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+  const isPasswordValid = bcrypt.compareSync(password, user.password);
+  if (!isPasswordValid) {
+    return res.status(
