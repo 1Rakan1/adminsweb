@@ -7,19 +7,18 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
+      background-image: url('https://media.wickdev.me/1d715f0e34.png'); /* ضع رابط الصورة هنا */
+      background-size: cover;  /* لتغطية الخلفية بالكامل */
+      background-position: center; /* لضبط الصورة في المنتصف */
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
       margin: 0;
       flex-direction: column;
-      background-image: url('https://media.wickdev.me/1d715f0e34.png'); /* إضافة رابط الصورة هنا */
-      background-size: cover;
-      background-position: center;
     }
     .form-container {
-      background-color: rgba(255, 255, 255, 0.8); /* إضافة شفافية لجعل النص قابل للقراءة */
+      background-color: rgba(255, 255, 255, 0.8); /* تعديل الشفافية ليظهر الخلفية من خلال النموذج */
       padding: 30px;
       border-radius: 10px;
       box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
@@ -95,7 +94,6 @@
         <option value="admin">Admin</option>
         <option value="superAdmin">Super Admin</option>
       </select>
-      <input type="email" id="registerEmail" placeholder="Email" />
       <button onclick="register()">Register</button>
     </div>
   </div>
@@ -105,6 +103,18 @@
   </div>
 
   <script>
+    // Toggle between Login and Register Form
+    function toggleForm(formType) {
+      if (formType === 'login') {
+        document.getElementById('loginForm').style.display = 'block';
+        document.getElementById('registerForm').style.display = 'none';
+      } else {
+        document.getElementById('registerForm').style.display = 'block';
+        document.getElementById('loginForm').style.display = 'none';
+      }
+    }
+
+    // Login function
     async function login() {
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
@@ -112,7 +122,9 @@
 
       const response = await fetch('/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ username, password, role })
       });
 
@@ -121,20 +133,23 @@
         alert(data.message);
       } else {
         alert('Login successful');
+        // Redirect to dashboard or main page
       }
     }
 
+    // Register function
     async function register() {
       const username = document.getElementById('registerUsername').value;
       const password = document.getElementById('registerPassword').value;
       const discordUsername = document.getElementById('discordUsername').value;
-      const email = document.getElementById('registerEmail').value;
       const role = document.getElementById('registerRole').value;
 
       const response = await fetch('/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, discordUsername, role, email })
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password, discordUsername, role })
       });
 
       const data = await response.json();
