@@ -3,100 +3,136 @@ import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import mongoose from 'mongoose';
-import User from './models/user.js';  
 import nodemailer from 'nodemailer';
-import crypto from 'crypto';
+import mongoose from 'mongoose';
+import User from './models/user.js';
+import Chat from './models/chat.js';
 
 dotenv.config();
-
 const app = express();
 const PORT = process.env.PORT || 22782;
 
 app.use(bodyParser.json());
 
-// الاتصال بقاعدة بيانات MongoDB
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('Connected to MongoDB'))
-  .catch((err) => console.log('MongoDB connection error:', err));
+// اتصال بقاعدة البيانات
+mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => {
+    console.log('Connected to MongoDB');
+    // إضافة سوبر أدمن إذا لم يكن موجودًا
+    addSuperAdmin();
+  })
+  .catch(err => console.log(err));
 
-// تسجيل مستخدم جديد مع إرسال كود التحقق إلى البريد الإلكتروني
+// إضافة سوبر أدمن
+async function addSuperAdmin() {
+  const superAdminExists = await User.findOne({ username: 'rakanm2' });
+  if (!superAdminExists) {
+    const hashedPassword = bcrypt.hashSync('bd2w56ra', 10);
+    const newSuperAdmin = new User({
+      username: 'rakanm2',
+      password: hashedPassword,
+      discordUsername: 'RakanM2',
+      role: 'superAdmin',
+      emailVerified: true,  // لأنه سوبر أدمن
+      verificationCode: null,
+    });
+
+    await newSuperAdmin.save();
+    console.log('Super Admin created: rakanm2');
+  } else {
+    console.log('Super Admin already exists');
+  }
+}
+
+// بيانات المستخدم الافتراضية
+let users = [];
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL,
+    pass: process.env.EMAIL_PASSWORD,
+  }
+});
+
+// تسجيل مستخدم جديد
 app.post('/register', async (req, res) => {
-  const { username, password, discordUsername, email, role } = req.body;
+  const { username, password, discordUsername, role } = req.body;
 
-  if (!username || !password || !discordUsername || !email || !role) {
+  if (!username || !password || !discordUsername || !role) {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
-  const existingUser = await User.findOne({ username });
-  if (existingUser) {
-    return res.status(400).json({ message: 'Username already exists' });
-  }
-
   const hashedPassword = bcrypt.hashSync(password, 10);
-
-  // إنشاء الكود العشوائي للتحقق
-  const verificationCode = crypto.randomInt(100000, 999999);  // كود مكون من 6 أرقام
-
-  // إنشاء مستخدم جديد ولكن دون التحقق حتى الآن
   const newUser = new User({
     username,
     password: hashedPassword,
     discordUsername,
-    email,
-    role: role === 'admin' || role === 'superAdmin' ? role : 'user',
-    verificationCode,
-    verified: false,  // حقل لتحديد ما إذا تم التحقق من الحساب
+    role,
+    emailVerified: false,
+    verificationCode: Math.floor(100000 + Math.random() * 900000),
   });
 
   await newUser.save();
 
-  // إرسال بريد إلكتروني مع كود التحقق
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
+  // إرسال كود التحقق إلى البريد الإلكتروني
   const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: email,
-    subject: 'Email Verification',
-    text: `Your verification code is: ${verificationCode}`,
+    from: process.env.EMAIL,
+    to: newUser.email,
+    subject: 'Verification Code',
+    text: `Your verification code is: ${newUser.verificationCode}`,
   };
 
-  transporter.sendMail(mailOptions, (err, info) => {
-    if (err) {
-      return res.status(500).json({ message: 'Error sending verification email' });
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      return console.log(error);
     }
-    res.status(200).json({ message: 'User registered successfully. Please check your email for the verification code.' });
+    console.log('Email sent: ' + info.response);
   });
+
+  res.status(200).json({ message: 'User registered successfully. Please check your email for the verification code.' });
 });
 
-// التحقق من كود التحقق
-app.post('/verify', async (req, res) => {
-  const { email, verificationCode } = req.body;
+// تسجيل دخول
+app.post('/login', async (req, res) => {
+  const { username, password, role } = req.body;
+  const user = await User.findOne({ username, role });
 
-  if (!email || !verificationCode) {
-    return res.status(400).json({ message: 'Email and verification code are required' });
+  if (!user || !bcrypt.compareSync(password, user.password)) {
+    return res.status(401).json({ message: 'Invalid credentials' });
   }
 
+  const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  res.json({ token });
+});
+
+// إرسال رابط إعادة تعيين كلمة المرور
+app.post('/reset-password', async (req, res) => {
+  const { email } = req.body;
   const user = await User.findOne({ email });
 
   if (!user) {
     return res.status(404).json({ message: 'User not found' });
   }
 
-  if (user.verificationCode !== parseInt(verificationCode)) {
-    return res.status(400).json({ message: 'Invalid verification code' });
-  }
+  const resetToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
 
-  user.verified = true; // تغيير الحالة إلى تم التحقق
-  await user.save();
+  const mailOptions = {
+    from: process.env.EMAIL,
+    to: email,
+    subject: 'Reset Password',
+    text: `Click the following link to reset your password: ${resetLink}`,
+  };
 
-  res.status(200).json({ message: 'Email verified successfully!' });
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      return console.log(error);
+    }
+    console.log('Email sent: ' + info.response);
+  });
+
+  res.json({ message: 'Password reset link sent to your email' });
 });
 
 // تشغيل الخادم
