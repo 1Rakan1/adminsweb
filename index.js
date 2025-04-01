@@ -9,7 +9,7 @@ import { randomInt } from 'crypto';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 22782;
+const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
 let verificationCode = '';  // حفظ كود التحقق مؤقتًا
