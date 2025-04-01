@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EGamer Server</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      flex-direction: column;
+    }
+    .form-container {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+      width: 320px;
+    }
+    h2 {
+      text-align: center;
+      color: #333;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    .forgot-password {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    .option-container {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    .footer {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 14px;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+  <div class="form-container">
+    <h2>EGamer Server</h2>
+    <div class="option-container">
+      <button onclick="toggleForm('login')">Login</button>
+      <button onclick="toggleForm('register')">Register</button>
+    </div>
+
+    <!-- Login Form -->
+    <div id="loginForm">
+      <select id="loginRole">
+        <option value="user">User</option>
+        <option value="admin">Admin</option>
+        <option value="superAdmin">Super Admin</option>
+      </select>
+      <input type="text" id="username" placeholder="Username" />
+      <input type="password" id="password" placeholder="Password" />
+      <button onclick="login()">Login</button>
+      <div class="forgot-password">
+        <a href="#">Forgot Password?</a>
+      </div>
+    </div>
+
+    <!-- Register Form -->
+    <div id="registerForm" style="display:none;">
+      <input type="text" id="registerUsername" placeholder="Username" />
+      <input type="password" id="registerPassword" placeholder="Password" />
+      <input type="text" id="discordUsername" placeholder="Discord Username" />
+      <select id="registerRole">
+        <option value="user">User</option>
+        <option value="admin">Admin</option>
+        <option value="superAdmin">Super Admin</option>
+      </select>
+      <button onclick="register()">Register</button>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Made by: M2</p>
+  </div>
+
+  <script>
+    // Toggle between Login and Register Form
+    function toggleForm(formType) {
+      if (formType === 'login') {
+        document.getElementById('loginForm').style.display = 'block';
+        document.getElementById('registerForm').style.display = 'none';
+      } else {
+        document.getElementById('registerForm').style.display = 'block';
+        document.getElementById('loginForm').style.display = 'none';
+      }
+    }
+
+    // Login function
+    async function login() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const role = document.getElementById('loginRole').value;
+
+      const response = await fetch('/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password, role })
+      });
+
+      const data = await response.json();
+      if (data.message) {
+        alert(data.message);
+      } else {
+        alert('Login successful');
+        // Redirect to dashboard or main page
+      }
+    }
+
+    // Register function
+    async function register() {
+      const username = document.getElementById('registerUsername').value;
+      const password = document.getElementById('registerPassword').value;
+      const discordUsername = document.getElementById('discordUsername').value;
+      const role = document.getElementById('registerRole').value;
+
+      const response = await fetch('/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password, discordUsername, role })
+      });
+
+      const data = await response.json();
+      if (data.message) {
+        alert(data.message);
+      }
+    }
+  </script>
+</body>
+</html>
