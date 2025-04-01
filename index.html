@@ -95,6 +95,12 @@
       </select>
       <button onclick="register()">Register</button>
     </div>
+
+    <!-- Verification Code Form -->
+    <div id="verificationForm" style="display:none;">
+      <input type="text" id="verificationCode" placeholder="Enter Verification Code" />
+      <button onclick="verifyCode()">Verify</button>
+    </div>
   </div>
 
   <div class="footer">
@@ -107,32 +113,11 @@
       if (formType === 'login') {
         document.getElementById('loginForm').style.display = 'block';
         document.getElementById('registerForm').style.display = 'none';
-      } else {
+        document.getElementById('verificationForm').style.display = 'none';
+      } else if (formType === 'register') {
         document.getElementById('registerForm').style.display = 'block';
         document.getElementById('loginForm').style.display = 'none';
-      }
-    }
-
-    // Login function
-    async function login() {
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
-      const role = document.getElementById('loginRole').value;
-
-      const response = await fetch('/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password, role })
-      });
-
-      const data = await response.json();
-      if (data.message) {
-        alert(data.message);
-      } else {
-        alert('Login successful');
-        // Redirect to dashboard or main page
+        document.getElementById('verificationForm').style.display = 'none';
       }
     }
 
@@ -144,21 +129,65 @@
       const email = document.getElementById('email').value;
       const role = document.getElementById('registerRole').value;
 
+      if (!username || !password || !discordUsername || !email || !role) {
+        alert('All fields are required');
+        return;
+      }
+
       const response = await fetch('/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password, discordUsername, email, role })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, discordUsername, email, role }),
       });
 
       const data = await response.json();
       if (data.message) {
         alert(data.message);
+      } else {
+        alert('Account created successfully, please check your email for the verification code');
+        document.getElementById('registerForm').style.display = 'none';
+        document.getElementById('verificationForm').style.display = 'block';
+      }
+    }
+
+    // Verification function
+    async function verifyCode() {
+      const verificationCode = document.getElementById('verificationCode').value;
+
+      const response = await fetch('/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verificationCode }),
+      });
+
+      const data = await response.json();
+      if (data.message) {
+        alert(data.message);
+      } else {
+        alert('Verification successful');
+      }
+    }
+
+    // Login function
+    async function login() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const role = document.getElementById('loginRole').value;
+
+      const response = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, role }),
+      });
+
+      const data = await response.json();
+      if (data.message) {
+        alert(data.message);
+      } else {
+        alert('Login successful');
+        // Redirect to dashboard or main page
       }
     }
   </script>
 </body>
 </html>
-
-
