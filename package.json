@@ -14,7 +14,8 @@
     "cors": "^2.8.5",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.0",
-    "mongoose": "^7.6.3"
+    "mongoose": "^7.6.3",
+    "nodemailer": "^6.7.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
