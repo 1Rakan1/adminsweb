@@ -57,6 +57,16 @@
       font-size: 14px;
       color: #777;
     }
+    .user-options {
+      display: none;
+    }
+    .admin-form {
+      display: none;
+    }
+    .error {
+      color: red;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -93,6 +103,18 @@
         <option value="superAdmin">Super Admin</option>
       </select>
       <button onclick="register()">Register</button>
+    </div>
+
+    <!-- User Options (Only shown after login) -->
+    <div id="userOptions" class="user-options">
+      <p>Welcome <span id="loggedInUser"></span></p>
+      <button onclick="submitAdminRequest()">Submit Admin Request</button>
+      <div id="adminRequestForm" class="admin-form">
+        <h3>Please fill out all fields</h3>
+        <input type="text" id="requestReason" placeholder="Reason for admin request" />
+        <button onclick="submitRequest()">Submit</button>
+        <p class="error" id="adminRequestError"></p>
+      </div>
     </div>
   </div>
 
@@ -131,7 +153,11 @@
         alert(data.message);
       } else {
         alert('Login successful');
-        // Redirect to dashboard or main page
+        document.getElementById('userOptions').style.display = 'block';
+        document.getElementById('loggedInUser').textContent = username;
+        // Hide the login/register forms
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('registerForm').style.display = 'none';
       }
     }
 
@@ -153,6 +179,22 @@
       const data = await response.json();
       if (data.message) {
         alert(data.message);
+      }
+    }
+
+    // Submit Admin Request
+    function submitAdminRequest() {
+      document.getElementById('adminRequestForm').style.display = 'block';
+    }
+
+    function submitRequest() {
+      const reason = document.getElementById('requestReason').value;
+      if (!reason) {
+        document.getElementById('adminRequestError').textContent = 'Error: Please fill in all fields.';
+      } else {
+        document.getElementById('adminRequestError').textContent = '';
+        alert('Request submitted successfully!');
+        // هنا يمكن إرسال الطلب إلى السيرفر
       }
     }
   </script>
