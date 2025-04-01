@@ -92,4 +92,16 @@ app.post('/login', async (req, res) => {
 
   const isPasswordValid = bcrypt.compareSync(password, user.password);
   if (!isPasswordValid) {
-    return res.status(
+    return res.status(400).json({ message: 'Invalid password' });
+  }
+
+  // إنشاء توكن JWT
+  const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+  res.status(200).json({ message: 'Login successful', token });
+});
+
+// تشغيل الخادم
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
