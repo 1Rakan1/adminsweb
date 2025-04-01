@@ -3,136 +3,105 @@ import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer';
 import mongoose from 'mongoose';
-import User from './models/user.js';
-import Chat from './models/chat.js';
+import nodemailer from 'nodemailer';
+import User from './models/user.js'; // تأكد من استيراد نموذج المستخدم
 
 dotenv.config();
+
 const app = express();
 const PORT = process.env.PORT || 22782;
 
 app.use(bodyParser.json());
 
-// اتصال بقاعدة البيانات
-mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => {
-    console.log('Connected to MongoDB');
-    // إضافة سوبر أدمن إذا لم يكن موجودًا
-    addSuperAdmin();
-  })
-  .catch(err => console.log(err));
+// الاتصال بقاعدة البيانات MongoDB
+mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
 
-// إضافة سوبر أدمن
-async function addSuperAdmin() {
-  const superAdminExists = await User.findOne({ username: 'rakanm2' });
-  if (!superAdminExists) {
+// عند تشغيل السيرفر، تحقق من وجود سوبر أدمن، وإذا لم يكن موجودًا، أنشئه
+mongoose.connection.once('open', async () => {
+  const superAdmin = await User.findOne({ username: 'rakanm2' });
+
+  if (!superAdmin) {
     const hashedPassword = bcrypt.hashSync('bd2w56ra', 10);
     const newSuperAdmin = new User({
       username: 'rakanm2',
       password: hashedPassword,
-      discordUsername: 'RakanM2',
+      discordUsername: 'rakanm2_discord',
       role: 'superAdmin',
-      emailVerified: true,  // لأنه سوبر أدمن
+      emailVerified: true,
       verificationCode: null,
     });
 
     await newSuperAdmin.save();
-    console.log('Super Admin created: rakanm2');
-  } else {
-    console.log('Super Admin already exists');
-  }
-}
-
-// بيانات المستخدم الافتراضية
-let users = [];
-
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL,
-    pass: process.env.EMAIL_PASSWORD,
+    console.log('Super Admin account created: rakanm2');
   }
 });
 
 // تسجيل مستخدم جديد
 app.post('/register', async (req, res) => {
-  const { username, password, discordUsername, role } = req.body;
+  const { username, password, discordUsername, role, email } = req.body;
 
-  if (!username || !password || !discordUsername || !role) {
+  if (!username || !password || !discordUsername || !role || !email) {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
+  const userExists = await User.findOne({ username });
+
+  if (userExists) {
+    return res.status(400).json({ message: 'Username already exists' });
+  }
+
   const hashedPassword = bcrypt.hashSync(password, 10);
+
   const newUser = new User({
     username,
     password: hashedPassword,
     discordUsername,
     role,
+    email,
     emailVerified: false,
-    verificationCode: Math.floor(100000 + Math.random() * 900000),
+    verificationCode: Math.floor(100000 + Math.random() * 900000),  // توليد كود تحقق من 6 أرقام
   });
 
   await newUser.save();
 
-  // إرسال كود التحقق إلى البريد الإلكتروني
+  // إرسال كود التحقق عبر البريد الإلكتروني
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
   const mailOptions = {
-    from: process.env.EMAIL,
-    to: newUser.email,
-    subject: 'Verification Code',
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: 'Email Verification Code',
     text: `Your verification code is: ${newUser.verificationCode}`,
   };
 
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {
-      return console.log(error);
+      return res.status(500).json({ message: 'Error sending verification email' });
     }
-    console.log('Email sent: ' + info.response);
+    res.status(200).json({ message: 'User registered successfully. Please check your email for verification.' });
   });
-
-  res.status(200).json({ message: 'User registered successfully. Please check your email for the verification code.' });
 });
 
-// تسجيل دخول
+// تسجيل الدخول
 app.post('/login', async (req, res) => {
-  const { username, password, role } = req.body;
-  const user = await User.findOne({ username, role });
+  const { username, password } = req.body;
+
+  const user = await User.findOne({ username });
 
   if (!user || !bcrypt.compareSync(password, user.password)) {
     return res.status(401).json({ message: 'Invalid credentials' });
   }
 
-  const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
   res.json({ token });
-});
-
-// إرسال رابط إعادة تعيين كلمة المرور
-app.post('/reset-password', async (req, res) => {
-  const { email } = req.body;
-  const user = await User.findOne({ email });
-
-  if (!user) {
-    return res.status(404).json({ message: 'User not found' });
-  }
-
-  const resetToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-  const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
-
-  const mailOptions = {
-    from: process.env.EMAIL,
-    to: email,
-    subject: 'Reset Password',
-    text: `Click the following link to reset your password: ${resetLink}`,
-  };
-
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      return console.log(error);
-    }
-    console.log('Email sent: ' + info.response);
-  });
-
-  res.json({ message: 'Password reset link sent to your email' });
 });
 
 // تشغيل الخادم
