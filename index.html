@@ -46,18 +46,48 @@
       margin-top: 10px;
       font-size: 14px;
     }
+    .option-container {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    .footer {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 14px;
+      color: #777;
+    }
   </style>
 </head>
 <body>
   <div class="form-container">
     <h2>EGamer Server</h2>
+    <div class="option-container">
+      <button onclick="toggleForm('login')">Login</button>
+      <button onclick="toggleForm('register')">Register</button>
+    </div>
+
+    <!-- Login Form -->
+    <div id="loginForm">
+      <select id="loginRole">
+        <option value="user">User</option>
+        <option value="admin">Admin</option>
+        <option value="superAdmin">Super Admin</option>
+      </select>
+      <input type="text" id="username" placeholder="Username" />
+      <input type="password" id="password" placeholder="Password" />
+      <button onclick="login()">Login</button>
+      <div class="forgot-password">
+        <a href="#">Forgot Password?</a>
+      </div>
+    </div>
 
     <!-- Register Form -->
-    <div id="registerForm">
+    <div id="registerForm" style="display:none;">
       <input type="text" id="registerUsername" placeholder="Username" />
-      <input type="email" id="registerEmail" placeholder="Email" />
       <input type="password" id="registerPassword" placeholder="Password" />
       <input type="text" id="discordUsername" placeholder="Discord Username" />
+      <input type="email" id="email" placeholder="Email" />
       <select id="registerRole">
         <option value="user">User</option>
         <option value="admin">Admin</option>
@@ -65,41 +95,70 @@
       </select>
       <button onclick="register()">Register</button>
     </div>
+  </div>
 
-    <div class="forgot-password">
-      <a href="#" onclick="forgotPassword()">Forgot Password?</a>
-    </div>
+  <div class="footer">
+    <p>Made by: M2</p>
   </div>
 
   <script>
+    // Toggle between Login and Register Form
+    function toggleForm(formType) {
+      if (formType === 'login') {
+        document.getElementById('loginForm').style.display = 'block';
+        document.getElementById('registerForm').style.display = 'none';
+      } else {
+        document.getElementById('registerForm').style.display = 'block';
+        document.getElementById('loginForm').style.display = 'none';
+      }
+    }
+
+    // Login function
+    async function login() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const role = document.getElementById('loginRole').value;
+
+      const response = await fetch('/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password, role })
+      });
+
+      const data = await response.json();
+      if (data.message) {
+        alert(data.message);
+      } else {
+        alert('Login successful');
+        // Redirect to dashboard or main page
+      }
+    }
+
+    // Register function
     async function register() {
       const username = document.getElementById('registerUsername').value;
-      const email = document.getElementById('registerEmail').value;
       const password = document.getElementById('registerPassword').value;
       const discordUsername = document.getElementById('discordUsername').value;
+      const email = document.getElementById('email').value;
       const role = document.getElementById('registerRole').value;
 
       const response = await fetch('/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password, discordUsername, role })
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password, discordUsername, email, role })
       });
 
       const data = await response.json();
-      alert(data.message);
-    }
-
-    async function forgotPassword() {
-      const email = prompt("Please enter your email:");
-      if (email) {
-        const response = await fetch('/forgot-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
-        });
-        const data = await response.json();
+      if (data.message) {
         alert(data.message);
       }
     }
-  </
+  </script>
+</body>
+</html>
+
 
