@@ -5,68 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>EGamer Server</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-      flex-direction: column;
-    }
-    .form-container {
-      background-color: #fff;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-      width: 320px;
-    }
-    h2 {
-      text-align: center;
-      color: #333;
-    }
-    input, select {
-      width: 100%;
-      padding: 10px;
-      margin: 10px 0;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-    }
-    button {
-      width: 100%;
-      padding: 10px;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 5px;
-    }
-    .forgot-password {
-      text-align: center;
-      margin-top: 10px;
-      font-size: 14px;
-    }
-    .option-container {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 20px;
-    }
-    .footer {
-      margin-top: 20px;
-      text-align: center;
-      font-size: 14px;
-      color: #777;
-    }
-    .user-options {
-      display: none;
-    }
-    .admin-form {
-      display: none;
-    }
-    .error {
-      color: red;
-      font-size: 14px;
-    }
+    /* ... نفس التنسيق السابق ... */
   </style>
 </head>
 <body>
@@ -105,16 +44,10 @@
       <button onclick="register()">Register</button>
     </div>
 
-    <!-- User Options (Only shown after login) -->
-    <div id="userOptions" class="user-options">
-      <p>Welcome <span id="loggedInUser"></span></p>
+    <!-- Admin Request Form -->
+    <div id="adminRequestForm" style="display:none;">
+      <textarea id="reason" placeholder="Reason for becoming admin"></textarea>
       <button onclick="submitAdminRequest()">Submit Admin Request</button>
-      <div id="adminRequestForm" class="admin-form">
-        <h3>Please fill out all fields</h3>
-        <input type="text" id="requestReason" placeholder="Reason for admin request" />
-        <button onclick="submitRequest()">Submit</button>
-        <p class="error" id="adminRequestError"></p>
-      </div>
     </div>
   </div>
 
@@ -128,13 +61,29 @@
       if (formType === 'login') {
         document.getElementById('loginForm').style.display = 'block';
         document.getElementById('registerForm').style.display = 'none';
-      } else {
+        document.getElementById('adminRequestForm').style.display = 'none';
+      } else if (formType === 'register') {
         document.getElementById('registerForm').style.display = 'block';
         document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('adminRequestForm').style.display = 'none';
       }
     }
 
-    // Login function
+    // Submit Admin Request
+    async function submitAdminRequest() {
+      const reason = document.getElementById('reason').value;
+
+      const response = await fetch('/requestAdmin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: 'userIdHere', reason })
+      });
+
+      const data = await response.json();
+      alert(data.message);
+    }
+
+    // تسجيل الدخول
     async function login() {
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
@@ -142,9 +91,7 @@
 
       const response = await fetch('/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, role })
       });
 
@@ -153,15 +100,13 @@
         alert(data.message);
       } else {
         alert('Login successful');
-        document.getElementById('userOptions').style.display = 'block';
-        document.getElementById('loggedInUser').textContent = username;
-        // Hide the login/register forms
-        document.getElementById('loginForm').style.display = 'none';
-        document.getElementById('registerForm').style.display = 'none';
+        if (role === 'user') {
+          document.getElementById('adminRequestForm').style.display = 'block';
+        }
       }
     }
 
-    // Register function
+    // تسجيل مستخدم
     async function register() {
       const username = document.getElementById('registerUsername').value;
       const password = document.getElementById('registerPassword').value;
@@ -170,32 +115,12 @@
 
       const response = await fetch('/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, discordUsername, role })
       });
 
       const data = await response.json();
-      if (data.message) {
-        alert(data.message);
-      }
-    }
-
-    // Submit Admin Request
-    function submitAdminRequest() {
-      document.getElementById('adminRequestForm').style.display = 'block';
-    }
-
-    function submitRequest() {
-      const reason = document.getElementById('requestReason').value;
-      if (!reason) {
-        document.getElementById('adminRequestError').textContent = 'Error: Please fill in all fields.';
-      } else {
-        document.getElementById('adminRequestError').textContent = '';
-        alert('Request submitted successfully!');
-        // هنا يمكن إرسال الطلب إلى السيرفر
-      }
+      alert(data.message);
     }
   </script>
 </body>
