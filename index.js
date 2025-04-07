@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 
-// الروابط
+// استيراد الروابط
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const issueRoutes = require('./routes/issueRoutes');
@@ -23,7 +23,7 @@ mongoose.connect('mongodb://localhost:27017/saadni', {
 })
 .then(() => {
   console.log('تم الاتصال بـ MongoDB');
-  require('./initialSetup')(); // إنشاء الحسابات الافتراضية
+  require('./initialSetup')();
 })
 .catch(err => console.error('خطأ في الاتصال:', err));
 
