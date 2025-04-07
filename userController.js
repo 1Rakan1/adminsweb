@@ -1,42 +1,80 @@
-// server/controllers/userController.js
 const User = require('../models/User');
 
-exports.updateUserRole = async (req, res) => {
+// ترقية مستخدم (للقائد والمساعد فقط)
+exports.promoteUser = async (req, res) => {
   try {
-    // التحقق من صلاحية المستخدم
-    if (!['assistant', 'leader'].includes(req.user.role)) {
+    const { userId } = req.params;
+    const { newRole } = req.body;
+    const currentUser = req.user;
+
+    // 1) التحقق من صلاحية المستخدم الحالي
+    if (!['assistant', 'leader'].includes(currentUser.role)) {
       return res.status(403).json({
-        success: false,
-        message: 'غير مصرح لك بتنفيذ هذه العملية'
+        status: 'fail',
+        message: 'ليس لديك صلاحية لترقية المستخدمين'
       });
     }
 
-    // التحقق من الصلاحيات الممنوحة
-    const allowedRoles = req.user.role === 'leader' 
-      ? ['user', 'admin', 'assistant'] 
-      : ['user', 'admin'];
+    // 2) القائد يمكنه تعيين أي رتبة، المساعد يمكنه تعيين أدمن فقط
+    if (currentUser.role === 'assistant' && newRole !== 'admin') {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'يمكنك فقط ترقية المستخدمين إلى أدمن'
+      });
+    }
 
-    if (!allowedRoles.includes(req.body.newRole)) {
+    // 3) التحقق من أن الرتبة الجديدة صالحة
+    const allowedRoles = ['user', 'admin', 'assistant', 'leader'];
+    if (!allowedRoles.includes(newRole)) {
       return res.status(400).json({
-        success: false,
-        message: 'لا يمكن تعيين هذه الرتبة'
+        status: 'fail',
+        message: 'رتبة غير صالحة'
       });
     }
 
-    const user = await User.findByIdAndUpdate(
-      req.params.userId,
-      { role: req.body.newRole },
-      { new: true }
-    );
+    // 4) تنفيذ الترقية
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { role: newRole },
+      { new: true, runValidators: true }
+    ).select('-password');
 
     res.status(200).json({
-      success: true,
-      data: user
+      status: 'success',
+      data: {
+        user: updatedUser
+      }
     });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: 'حدث خطأ أثناء تحديث الرتبة'
+    res.status(400).json({
+      status: 'fail',
+      message: err.message
+    });
+  }
+};
+
+// عرض جميع المستخدمين مع إمكانية التصفية
+exports.getAllUsers = async (req, res) => {
+  try {
+    // بناء query بناءً على صلاحية المستخدم
+    let query = {};
+    if (req.user.role === 'assistant') {
+      query.role = { $in: ['user', 'admin'] };
+    }
+
+    const users = await User.find(query).select('-password');
+
+    res.status(200).json({
+      status: 'success',
+      results: users.length,
+      data: {
+        users
+      }
+    });
+  } catch (err) {
+    res.status(400).json({
+      status: 'fail',
+      message: err.message
     });
   }
 };
