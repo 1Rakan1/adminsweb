@@ -31,7 +31,6 @@ body {
     padding: 0 20px;
 }
 
-/* شريط التنقل */
 .navbar {
     background-color: white;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
@@ -90,7 +89,6 @@ body {
     cursor: pointer;
 }
 
-/* الأزرار */
 .btn {
     display: inline-block;
     padding: 0.7rem 1.5rem;
@@ -138,7 +136,6 @@ body {
     background-color: #4752c4;
 }
 
-/* الصفحة الرئيسية */
 .hero {
     padding: 4rem 0;
     text-align: center;
@@ -164,7 +161,6 @@ body {
     margin-top: 2rem;
 }
 
-/* نماذج الدخول والتسجيل */
 .auth-container {
     max-width: 500px;
     margin: 3rem auto;
@@ -220,7 +216,6 @@ body {
     text-decoration: underline;
 }
 
-/* لوحة التحكم */
 .dashboard {
     padding: 2rem 0;
 }
@@ -242,7 +237,6 @@ body {
     gap: 15px;
 }
 
-/* بطاقة المستخدم */
 .user-card {
     background: white;
     border-radius: 10px;
@@ -312,7 +306,6 @@ body {
     color: white;
 }
 
-/* نموذج التذكرة */
 .ticket-modal {
     position: fixed;
     top: 0;
@@ -415,7 +408,6 @@ body {
     color: var(--gray-medium);
 }
 
-/* قائمة المستخدمين */
 .users-list {
     background: white;
     border-radius: 10px;
@@ -471,7 +463,6 @@ body {
     background-color: var(--secondary-color);
 }
 
-/* نموذج الدردشة */
 .chat-modal {
     position: fixed;
     top: 0;
@@ -606,35 +597,53 @@ body {
     background-color: var(--secondary-color);
 }
 
-/* التقييمات */
-.rating-item {
+.tickets-list {
     background: white;
     border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
     padding: 1rem;
-    margin-bottom: 1rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    margin-top: 1rem;
 }
 
-.rating-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 0.5rem;
+.ticket-item {
+    padding: 1rem;
+    border-bottom: 1px solid var(--gray-light);
+    cursor: pointer;
+    transition: all 0.3s ease;
 }
 
-.rating-user {
+.ticket-item:hover {
+    background-color: var(--gray-light);
+}
+
+.ticket-item:last-child {
+    border-bottom: none;
+}
+
+.ticket-priority {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
     font-weight: 600;
-    color: var(--primary-color);
+    margin-left: 0.5rem;
 }
 
-.rating-stars {
-    color: var(--warning-color);
+.ticket-priority.low {
+    background-color: #d4edda;
+    color: #155724;
 }
 
-.rating-comment {
-    color: var(--dark-color);
+.ticket-priority.medium {
+    background-color: #fff3cd;
+    color: #856404;
 }
 
-/* التكيف مع الشاشات الصغيرة */
+.ticket-priority.high {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
 @media (max-width: 768px) {
     .navbar .container {
         flex-direction: column;
