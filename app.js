@@ -1,7 +1,6 @@
 // متغيرات التطبيق
 let currentUser = null;
 let currentTicket = null;
-let socket = null;
 
 // عناصر DOM
 const loginBtn = document.getElementById('loginBtn');
@@ -26,8 +25,8 @@ const messageInput = document.getElementById('messageInput');
 const sendMessageBtn = document.getElementById('sendMessageBtn');
 const adminUsersSection = document.getElementById('adminUsersSection');
 const usersList = document.getElementById('usersList');
-const ratingsSection = document.getElementById('ratingsSection');
-const ratingsList = document.getElementById('ratingsList');
+const ticketsSection = document.getElementById('ticketsSection');
+const ticketsList = document.getElementById('ticketsList');
 
 // معالجات الأحداث
 loginBtn.addEventListener('click', (e) => {
@@ -55,6 +54,11 @@ logoutBtn.addEventListener('click', () => {
 });
 
 createTicketBtn.addEventListener('click', () => {
+    if (!currentUser) {
+        alert('الرجاء تسجيل الدخول أولاً');
+        showAuthForm('login');
+        return;
+    }
     ticketModal.classList.add('active');
 });
 
@@ -68,10 +72,6 @@ closeModal.addEventListener('click', () => {
 
 closeChat.addEventListener('click', () => {
     chatModal.classList.remove('active');
-    if (socket) {
-        socket.close();
-        socket = null;
-    }
 });
 
 priorityBtns.forEach(btn => {
@@ -120,7 +120,6 @@ async function checkAuth() {
 
 function updateUI() {
     if (currentUser) {
-        // حالة تسجيل الدخول
         document.querySelector('.nav-links').style.display = 'none';
         userProfile.style.display = 'flex';
         document.getElementById('usernameDisplay').textContent = currentUser.username;
@@ -130,25 +129,22 @@ function updateUI() {
         loginForm.style.display = 'none';
         registerForm.style.display = 'none';
         
-        // تحميل لوحة التحكم
         loadDashboard();
         
-        // إظهار أقسام الإدارة حسب الرتبة
         if (currentUser.role === 'leader' || currentUser.role === 'assistant') {
             adminUsersSection.style.display = 'block';
             loadUsersList();
         } else {
             adminUsersSection.style.display = 'none';
         }
-        
+
         if (currentUser.role !== 'user') {
-            ratingsSection.style.display = 'block';
-            loadRatings();
+            ticketsSection.style.display = 'block';
+            loadTickets();
         } else {
-            ratingsSection.style.display = 'none';
+            ticketsSection.style.display = 'none';
         }
     } else {
-        // حالة عدم تسجيل الدخول
         document.querySelector('.nav-links').style.display = 'flex';
         userProfile.style.display = 'none';
         homeSection.style.display = 'block';
@@ -156,7 +152,7 @@ function updateUI() {
         loginForm.style.display = 'none';
         registerForm.style.display = 'none';
         adminUsersSection.style.display = 'none';
-        ratingsSection.style.display = 'none';
+        ticketsSection.style.display = 'none';
     }
 }
 
@@ -227,29 +223,64 @@ async function createTicket(priority) {
             })
         });
         
-        if (response.ok) {
-            const ticket = await response.json();
-            alert(`تم إنشاء تذكرة الدعم رقم #${ticket._id}`);
-            openChat(ticket);
-        } else {
-            const error = await response.json();
-            alert(error.msg || 'حدث خطأ أثناء إنشاء التذكرة');
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.msg || 'حدث خطأ أثناء إنشاء التذكرة');
         }
+        
+        alert(`تم إنشاء تذكرة الدعم بنجاح!`);
+        openChat(result.ticket);
+        loadTickets();
     } catch (err) {
         console.error('Error creating ticket:', err);
-        alert('حدث خطأ أثناء إنشاء التذكرة');
+        alert(err.message || 'حدث خطأ أثناء إنشاء التذكرة');
     }
 }
 
-function openChat(ticket) {
-    currentTicket = ticket;
-    document.getElementById('chatTitle').textContent = `محادثة الدعم - ${getPriorityName(ticket.priority)}`;
-    chatMessages.innerHTML = '';
-    chatModal.classList.add('active');
+async function loadTickets() {
+    try {
+        const response = await fetch('/api/tickets', {
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            throw new Error('فشل تحميل التذاكر');
+        }
+        
+        const tickets = await response.json();
+        renderTickets(tickets);
+    } catch (err) {
+        console.error('Error loading tickets:', err);
+        ticketsList.innerHTML = '<p>حدث خطأ أثناء تحميل التذاكر</p>';
+    }
+}
+
+function renderTickets(tickets) {
+    ticketsList.innerHTML = '';
     
-    // في تطبيق حقيقي، هنا يتم الاتصال بالسيرفر عبر WebSocket
-    // هذا مثال وهمي للتوضيح فقط
-    simulateChat();
+    if (tickets.length === 0) {
+        ticketsList.innerHTML = '<p>لا توجد تذاكر مفتوحة</p>';
+        return;
+    }
+    
+    tickets.forEach(ticket => {
+        const ticketItem = document.createElement('div');
+        ticketItem.className = 'ticket-item';
+        ticketItem.innerHTML = `
+            <div>
+                <strong>#${ticket._id.substring(18)}</strong>
+                <span class="ticket-priority ${ticket.priority}">
+                    ${getPriorityName(ticket.priority)}
+                </span>
+            </div>
+            <p>${ticket.description}</p>
+            <small>الحالة: ${getStatusName(ticket.status)}</small>
+        `;
+        
+        ticketItem.addEventListener('click', () => openChat(ticket));
+        ticketsList.appendChild(ticketItem);
+    });
 }
 
 function getPriorityName(priority) {
@@ -261,8 +292,23 @@ function getPriorityName(priority) {
     }
 }
 
-function simulateChat() {
-    // إضافة رسالة ترحيبية
+function getStatusName(status) {
+    switch(status) {
+        case 'open': return 'مفتوحة';
+        case 'in-progress': return 'قيد المعالجة';
+        case 'resolved': return 'تم الحل';
+        default: return status;
+    }
+}
+
+function openChat(ticket) {
+    currentTicket = ticket;
+    document.getElementById('chatTitle').textContent = 
+        `محادثة الدعم - ${getPriorityName(ticket.priority)} (#${ticket._id.substring(18)})`;
+    chatMessages.innerHTML = '';
+    chatModal.classList.add('active');
+    
+    // محاكاة الدردشة
     addMessage({
         sender: currentUser.role === 'user' ? 'المساعد' : 'المستخدم',
         message: 'مرحبًا، كيف يمكنني مساعدتك اليوم؟',
@@ -270,7 +316,6 @@ function simulateChat() {
         type: 'received'
     });
     
-    // محاكاة ردود المساعد
     if (currentUser.role === 'user') {
         setTimeout(() => {
             addMessage({
@@ -317,7 +362,6 @@ function sendMessage() {
     const message = messageInput.value.trim();
     if (!message) return;
     
-    // إضافة الرسالة إلى الدردشة
     addMessage({
         sender: 'أنت',
         message,
@@ -325,10 +369,8 @@ function sendMessage() {
         type: 'sent'
     });
     
-    // في تطبيق حقيقي، هنا يتم إرسال الرسالة عبر WebSocket
     messageInput.value = '';
     
-    // محاكاة رد المساعد
     if (currentUser.role === 'user') {
         setTimeout(() => {
             addMessage({
@@ -347,14 +389,15 @@ async function loadUsersList() {
             credentials: 'include'
         });
         
-        if (response.ok) {
-            const users = await response.json();
-            renderUsersList(users);
-        } else {
-            console.error('Failed to load users');
+        if (!response.ok) {
+            throw new Error('فشل تحميل المستخدمين');
         }
+        
+        const users = await response.json();
+        renderUsersList(users);
     } catch (err) {
         console.error('Error loading users:', err);
+        usersList.innerHTML = '<p>حدث خطأ أثناء تحميل المستخدمين</p>';
     }
 }
 
@@ -383,7 +426,6 @@ function renderUsersList(users) {
         usersList.appendChild(userItem);
     });
     
-    // إضافة معالجات الأحداث لأزرار الترقية
     document.querySelectorAll('.promote-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             const userId = btn.dataset.userid;
@@ -409,63 +451,18 @@ async function promoteUser(userId) {
             credentials: 'include'
         });
         
-        if (response.ok) {
-            alert('تمت ترقية المستخدم بنجاح');
-            loadUsersList();
-        } else {
-            const error = await response.json();
-            alert(error.msg || 'حدث خطأ أثناء الترقية');
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.msg || 'حدث خطأ أثناء الترقية');
         }
+        
+        alert('تمت ترقية المستخدم بنجاح');
+        loadUsersList();
     } catch (err) {
         console.error('Error promoting user:', err);
-        alert('حدث خطأ أثناء الترقية');
+        alert(err.message || 'حدث خطأ أثناء الترقية');
     }
-}
-
-async function loadRatings() {
-    try {
-        const response = await fetch('/api/ratings', {
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            const ratings = await response.json();
-            renderRatings(ratings);
-        } else {
-            console.error('Failed to load ratings');
-        }
-    } catch (err) {
-        console.error('Error loading ratings:', err);
-    }
-}
-
-function renderRatings(ratings) {
-    ratingsList.innerHTML = '';
-    
-    if (ratings.length === 0) {
-        ratingsList.innerHTML = '<p>لا توجد تقييمات متاحة</p>';
-        return;
-    }
-    
-    ratings.forEach(rating => {
-        const ratingItem = document.createElement('div');
-        ratingItem.className = 'rating-item';
-        
-        let stars = '';
-        for (let i = 0; i < rating.score; i++) {
-            stars += '<i class="fas fa-star"></i>';
-        }
-        
-        ratingItem.innerHTML = `
-            <div class="rating-header">
-                <span class="rating-user">${rating.user.username}</span>
-                <div class="rating-stars">${stars}</div>
-            </div>
-            <p class="rating-comment">${rating.comment || 'لا يوجد تعليق'}</p>
-        `;
-        
-        ratingsList.appendChild(ratingItem);
-    });
 }
 
 async function login(username, password) {
@@ -482,15 +479,16 @@ async function login(username, password) {
             })
         });
         
-        if (response.ok) {
-            await checkAuth();
-        } else {
-            const error = await response.json();
-            alert(error.msg || 'اسم المستخدم أو كلمة المرور غير صحيحة');
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.msg || 'فشل تسجيل الدخول');
         }
+        
+        await checkAuth();
     } catch (err) {
-        console.error('Error logging in:', err);
-        alert('حدث خطأ أثناء تسجيل الدخول');
+        console.error('Login error:', err);
+        alert(err.message || 'حدث خطأ أثناء تسجيل الدخول');
     }
 }
 
@@ -504,16 +502,17 @@ async function register(userData) {
             body: JSON.stringify(userData)
         });
         
-        if (response.ok) {
-            alert('تم إنشاء الحساب بنجاح! يمكنك تسجيل الدخول الآن.');
-            showAuthForm('login');
-        } else {
-            const error = await response.json();
-            alert(error.msg || 'حدث خطأ أثناء إنشاء الحساب');
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.msg || 'فشل إنشاء الحساب');
         }
+        
+        alert(result.msg || 'تم إنشاء الحساب بنجاح!');
+        showAuthForm('login');
     } catch (err) {
-        console.error('Error registering:', err);
-        alert('حدث خطأ أثناء إنشاء الحساب');
+        console.error('Registration error:', err);
+        alert(err.message || 'حدث خطأ أثناء إنشاء الحساب');
     }
 }
 
