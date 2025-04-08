@@ -18,7 +18,7 @@ app.use(cors({
 app.use(cookieParser());
 
 // اتصال MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost/supportSystem', {
+mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://wick-studio25:wick-studio25@cluster0.jwvlb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
     useNewUrlParser: true,
     useUnifiedTopology: true
 });
