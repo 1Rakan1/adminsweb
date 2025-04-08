@@ -42,7 +42,7 @@
         </div>
     </section>
 
-    <!-- لوحة التحكم (تظهر بعد تسجيل الدخول) -->
+    <!-- لوحة التحكم -->
     <section class="dashboard" id="dashboardSection" style="display: none;">
         <div class="container">
             <div class="dashboard-header">
@@ -59,24 +59,18 @@
             </div>
             
             <!-- محتوى لوحة التحكم -->
-            <div id="dashboardContent">
-                <!-- سيتم ملؤها ديناميكيًا -->
-            </div>
+            <div id="dashboardContent"></div>
 
-            <!-- قسم إدارة المستخدمين (للرتب العليا) -->
+            <!-- قسم إدارة المستخدمين -->
             <div id="adminUsersSection" style="display: none; margin-top: 2rem;">
                 <h3><i class="fas fa-users-cog"></i> إدارة المستخدمين</h3>
-                <div class="users-list" id="usersList">
-                    <!-- سيتم ملؤها ديناميكيًا -->
-                </div>
+                <div class="users-list" id="usersList"></div>
             </div>
 
-            <!-- قسم التقييمات -->
-            <div id="ratingsSection" style="display: none; margin-top: 2rem;">
-                <h3><i class="fas fa-star"></i> التقييمات</h3>
-                <div class="ratings-list" id="ratingsList">
-                    <!-- سيتم ملؤها ديناميكيًا -->
-                </div>
+            <!-- قسم التذاكر -->
+            <div id="ticketsSection" style="display: none; margin-top: 2rem;">
+                <h3><i class="fas fa-ticket-alt"></i> التذاكر المفتوحة</h3>
+                <div class="tickets-list" id="ticketsList"></div>
             </div>
         </div>
     </section>
@@ -167,9 +161,7 @@
                 <h3 id="chatTitle">محادثة الدعم الفني</h3>
                 <button class="close-chat" id="closeChat">&times;</button>
             </div>
-            <div class="chat-messages" id="chatMessages">
-                <!-- الرسائل تظهر هنا -->
-            </div>
+            <div class="chat-messages" id="chatMessages"></div>
             <div class="chat-input">
                 <input type="text" id="messageInput" placeholder="اكتب رسالتك هنا...">
                 <button id="sendMessageBtn"><i class="fas fa-paper-plane"></i></button>
