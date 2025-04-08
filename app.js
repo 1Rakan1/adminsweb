@@ -209,7 +209,12 @@ function getRoleColor(role) {
 async function createTicket(priority) {
     try {
         const description = prompt('الرجاء إدخال وصف المشكلة:');
-        if (!description) return;
+        if (!description) {
+            alert('يجب إدخال وصف المشكلة');
+            return;
+        }
+
+        console.log('محاولة إنشاء تذكرة:', { priority, description });
         
         const response = await fetch('/api/tickets', {
             method: 'POST',
@@ -226,12 +231,18 @@ async function createTicket(priority) {
         const result = await response.json();
         
         if (!response.ok) {
+            console.error('فشل إنشاء التذكرة:', result);
             throw new Error(result.msg || 'حدث خطأ أثناء إنشاء التذكرة');
         }
         
+        console.log('تم إنشاء التذكرة بنجاح:', result.ticket);
         alert(`تم إنشاء تذكرة الدعم بنجاح!`);
+        
         openChat(result.ticket);
-        loadTickets();
+        
+        if (ticketsSection.style.display !== 'none') {
+            loadTickets();
+        }
     } catch (err) {
         console.error('Error creating ticket:', err);
         alert(err.message || 'حدث خطأ أثناء إنشاء التذكرة');
@@ -240,15 +251,19 @@ async function createTicket(priority) {
 
 async function loadTickets() {
     try {
+        console.log('جاري تحميل التذاكر...');
         const response = await fetch('/api/tickets', {
             credentials: 'include'
         });
         
         if (!response.ok) {
-            throw new Error('فشل تحميل التذاكر');
+            const error = await response.json();
+            console.error('فشل تحميل التذاكر:', error);
+            throw new Error(error.msg || 'فشل تحميل التذاكر');
         }
         
         const tickets = await response.json();
+        console.log('تم تحميل التذاكر:', tickets);
         renderTickets(tickets);
     } catch (err) {
         console.error('Error loading tickets:', err);
@@ -257,6 +272,7 @@ async function loadTickets() {
 }
 
 function renderTickets(tickets) {
+    console.log('عرض التذاكر:', tickets);
     ticketsList.innerHTML = '';
     
     if (tickets.length === 0) {
@@ -269,16 +285,21 @@ function renderTickets(tickets) {
         ticketItem.className = 'ticket-item';
         ticketItem.innerHTML = `
             <div>
-                <strong>#${ticket._id.substring(18)}</strong>
+                <strong>#${ticket._id.substring(0, 6)}</strong>
                 <span class="ticket-priority ${ticket.priority}">
                     ${getPriorityName(ticket.priority)}
                 </span>
             </div>
             <p>${ticket.description}</p>
             <small>الحالة: ${getStatusName(ticket.status)}</small>
+            ${ticket.assignedTo ? `<small>المسؤول: ${ticket.assignedTo.username}</small>` : ''}
         `;
         
-        ticketItem.addEventListener('click', () => openChat(ticket));
+        ticketItem.addEventListener('click', () => {
+            console.log('تم النقر على التذكرة:', ticket);
+            openChat(ticket);
+        });
+        
         ticketsList.appendChild(ticketItem);
     });
 }
@@ -302,13 +323,18 @@ function getStatusName(status) {
 }
 
 function openChat(ticket) {
+    if (!ticket || !ticket._id) {
+        console.error('بيانات التذكرة غير صالحة:', ticket);
+        alert('حدث خطأ في فتح المحادثة، التذكرة غير صالحة');
+        return;
+    }
+
     currentTicket = ticket;
     document.getElementById('chatTitle').textContent = 
-        `محادثة الدعم - ${getPriorityName(ticket.priority)} (#${ticket._id.substring(18)})`;
+        `محادثة الدعم - ${getPriorityName(ticket.priority)} (${ticket._id.substring(0, 6)}...)`;
     chatMessages.innerHTML = '';
     chatModal.classList.add('active');
     
-    // محاكاة الدردشة
     addMessage({
         sender: currentUser.role === 'user' ? 'المساعد' : 'المستخدم',
         message: 'مرحبًا، كيف يمكنني مساعدتك اليوم؟',
@@ -320,11 +346,11 @@ function openChat(ticket) {
         setTimeout(() => {
             addMessage({
                 sender: 'المساعد',
-                message: 'نحن نعمل على حل مشكلتك، الرجاء الانتظار...',
+                message: 'شكرًا لتواصلك معنا، سنقوم بالرد عليك قريبًا.',
                 timestamp: new Date(),
                 type: 'received'
             });
-        }, 3000);
+        }, 2000);
     }
 }
 
