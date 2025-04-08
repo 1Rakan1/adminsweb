@@ -18,7 +18,7 @@ app.use(cors({
 app.use(cookieParser());
 
 // اتصال MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://wick-studio25:wick-studio25@cluster0.jwvlb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/supportSystem', {
     useNewUrlParser: true,
     useUnifiedTopology: true
 });
@@ -30,61 +30,30 @@ const SupportTicket = require('./models/SupportTicket');
 // إنشاء الحسابات الإدارية الافتراضية
 async function createDefaultAccounts() {
     try {
-        // إنشاء القائد (Leader)
-        const leaderData = {
-            username: 'egamer1r',
-            email: 'leader@support.com',
-            discordName: 'leader_discord',
-            birthDate: new Date('1990-01-01'),
-            password: 'g96n00r0',
-            role: 'leader'
-        };
+        const roles = [
+            { username: 'egamer1r', password: 'g96n00r0', role: 'leader' },
+            { username: 'rakanm2', password: 'g96n00r1', role: 'assistant' },
+            { username: 'admin123', password: 'g96n00r7', role: 'admin' }
+        ];
 
-        let leader = await User.findOne({ username: leaderData.username });
-        if (!leader) {
-            const salt = await bcrypt.genSalt(10);
-            leaderData.password = await bcrypt.hash(leaderData.password, salt);
-            leader = new User(leaderData);
-            await leader.save();
-            console.log('تم إنشاء حساب القائد الافتراضي');
-        }
-
-        // إنشاء المساعد (Assistant)
-        const assistantData = {
-            username: 'rakanm2',
-            email: 'assistant@support.com',
-            discordName: 'assistant_discord',
-            birthDate: new Date('1990-01-01'),
-            password: 'g96n00r1',
-            role: 'assistant'
-        };
-
-        let assistant = await User.findOne({ username: assistantData.username });
-        if (!assistant) {
-            const salt = await bcrypt.genSalt(10);
-            assistantData.password = await bcrypt.hash(assistantData.password, salt);
-            assistant = new User(assistantData);
-            await assistant.save();
-            console.log('تم إنشاء حساب المساعد الافتراضي');
-        }
-
-        // إنشاء المسؤول (Admin)
-        const adminData = {
-            username: 'admin123',
-            email: 'admin@support.com',
-            discordName: 'admin_discord',
-            birthDate: new Date('1990-01-01'),
-            password: 'g96n00r7',
-            role: 'admin'
-        };
-
-        let admin = await User.findOne({ username: adminData.username });
-        if (!admin) {
-            const salt = await bcrypt.genSalt(10);
-            adminData.password = await bcrypt.hash(adminData.password, salt);
-            admin = new User(adminData);
-            await admin.save();
-            console.log('تم إنشاء حساب المسؤول الافتراضي');
+        for (const { username, password, role } of roles) {
+            let user = await User.findOne({ username });
+            if (!user) {
+                const salt = await bcrypt.genSalt(10);
+                const hashedPassword = await bcrypt.hash(password, salt);
+                
+                user = new User({
+                    username,
+                    email: `${username}@support.com`,
+                    discordName: `${username}_discord`,
+                    birthDate: new Date('1990-01-01'),
+                    password: hashedPassword,
+                    role
+                });
+                
+                await user.save();
+                console.log(`تم إنشاء حساب ${role} افتراضي: ${username}`);
+            }
         }
     } catch (err) {
         console.error('حدث خطأ أثناء إنشاء الحسابات الافتراضية:', err.message);
@@ -101,48 +70,52 @@ app.post('/api/register', [
 ], async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+        return res.status(400).json({ 
+            success: false,
+            errors: errors.array() 
+        });
     }
 
     const { username, email, password, discordName, birthDate } = req.body;
 
     try {
-        let user = await User.findOne({ $or: [{ username }, { email }] });
-        if (user) {
-            return res.status(400).json({ msg: 'المستخدم موجود بالفعل' });
+        const existingUser = await User.findOne({ 
+            $or: [{ username }, { email }] 
+        });
+        
+        if (existingUser) {
+            return res.status(400).json({ 
+                success: false,
+                msg: 'المستخدم موجود بالفعل' 
+            });
         }
 
-        user = new User({
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const newUser = new User({
             username,
             email,
             discordName,
             birthDate: new Date(birthDate),
-            password
+            password: hashedPassword,
+            role: 'user'
         });
 
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(password, salt);
+        await newUser.save();
 
-        await user.save();
+        res.json({ 
+            success: true,
+            msg: 'تم إنشاء الحساب بنجاح، يمكنك تسجيل الدخول الآن' 
+        });
 
-        const payload = {
-            user: {
-                id: user.id
-            }
-        };
-
-        jwt.sign(
-            payload,
-            process.env.JWT_SECRET,
-            { expiresIn: '5d' },
-            (err, token) => {
-                if (err) throw err;
-                res.cookie('token', token, { httpOnly: true }).json({ success: true });
-            }
-        );
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('خطأ في السيرفر');
+        console.error('حدث خطأ أثناء التسجيل:', err);
+        res.status(500).json({ 
+            success: false,
+            msg: 'حدث خطأ في السيرفر',
+            error: err.message 
+        });
     }
 });
 
@@ -152,29 +125,38 @@ app.post('/api/login', [
 ], async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+        return res.status(400).json({ 
+            success: false,
+            errors: errors.array() 
+        });
     }
 
     const { username, password } = req.body;
 
     try {
-        let user = await User.findOne({ username });
+        const user = await User.findOne({ username });
         if (!user) {
-            return res.status(400).json({ msg: 'بيانات الاعتماد غير صحيحة' });
+            return res.status(400).json({ 
+                success: false,
+                msg: 'بيانات الاعتماد غير صحيحة' 
+            });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(400).json({ msg: 'بيانات الاعتماد غير صحيحة' });
+            return res.status(400).json({ 
+                success: false,
+                msg: 'بيانات الاعتماد غير صحيحة' 
+            });
         }
 
-        // تحديث آخر تسجيل دخول
         user.lastLogin = new Date();
         await user.save();
 
         const payload = {
             user: {
-                id: user.id
+                id: user.id,
+                role: user.role
             }
         };
 
@@ -183,13 +165,32 @@ app.post('/api/login', [
             process.env.JWT_SECRET,
             { expiresIn: '5d' },
             (err, token) => {
-                if (err) throw err;
-                res.cookie('token', token, { httpOnly: true }).json({ success: true });
+                if (err) {
+                    console.error('خطأ في إنشاء التوكن:', err);
+                    throw err;
+                }
+                
+                res.cookie('token', token, { 
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: 'strict'
+                }).json({ 
+                    success: true,
+                    user: {
+                        id: user._id,
+                        username: user.username,
+                        role: user.role
+                    }
+                });
             }
         );
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('خطأ في السيرفر');
+        console.error('حدث خطأ أثناء تسجيل الدخول:', err);
+        res.status(500).json({ 
+            success: false,
+            msg: 'حدث خطأ في السيرفر',
+            error: err.message 
+        });
     }
 });
 
@@ -215,10 +216,70 @@ app.post('/api/logout', (req, res) => {
 });
 
 app.post('/api/tickets', async (req, res) => {
-    const { priority, description } = req.body;
-
     try {
-        // التحقق من المصادقة
+        const { priority, description } = req.body;
+        
+        const token = req.cookies.token;
+        if (!token) {
+            return res.status(401).json({ success: false, msg: 'غير مصرح' });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.user.id);
+        if (!user) {
+            return res.status(401).json({ success: false, msg: 'غير مصرح' });
+        }
+
+        console.log('إنشاء تذكرة جديدة:', {
+            userId: user._id,
+            priority,
+            description
+        });
+
+        let assignee;
+        if (priority === 'low') {
+            assignee = await User.findOne({ role: 'admin' });
+        } else {
+            assignee = await User.findOne({ 
+                role: { $in: ['assistant', 'leader'] } 
+            });
+        }
+
+        if (!assignee) {
+            console.error('لم يتم العثور على مسؤول متاح');
+            return res.status(400).json({ 
+                success: false, 
+                msg: 'لا يوجد مسؤول متاح حالياً' 
+            });
+        }
+
+        const ticket = new SupportTicket({
+            userId: user._id,
+            priority,
+            description,
+            assignedTo: assignee._id,
+            status: 'open'
+        });
+
+        await ticket.save();
+        
+        console.log('تم إنشاء التذكرة بنجاح:', ticket);
+        res.json({ 
+            success: true, 
+            ticket 
+        });
+    } catch (err) {
+        console.error('حدث خطأ أثناء إنشاء التذكرة:', err);
+        res.status(500).json({ 
+            success: false, 
+            msg: 'حدث خطأ في السيرفر',
+            error: err.message 
+        });
+    }
+});
+
+app.get('/api/tickets', async (req, res) => {
+    try {
         const token = req.cookies.token;
         if (!token) {
             return res.status(401).json({ msg: 'غير مصرح' });
@@ -230,28 +291,14 @@ app.post('/api/tickets', async (req, res) => {
             return res.status(401).json({ msg: 'غير مصرح' });
         }
 
-        // تحديد المسؤول المناسب حسب الأولوية
-        let assignedRole = 'admin';
-        if (priority === 'medium' || priority === 'high') {
-            assignedRole = 'assistant';
+        let tickets;
+        if (user.role === 'user') {
+            tickets = await SupportTicket.find({ userId: user._id });
+        } else {
+            tickets = await SupportTicket.find({ assignedTo: user._id });
         }
 
-        // إيجاد مسؤول متاح
-        const assignee = await User.findOne({ role: assignedRole });
-        if (!assignee) {
-            return res.status(400).json({ msg: 'لا يوجد مسؤول متاح حالياً' });
-        }
-
-        // إنشاء تذكرة جديدة
-        const ticket = new SupportTicket({
-            userId: user._id,
-            priority,
-            description,
-            assignedTo: assignee._id
-        });
-
-        await ticket.save();
-        res.json(ticket);
+        res.json(tickets);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('خطأ في السيرفر');
@@ -260,93 +307,6 @@ app.post('/api/tickets', async (req, res) => {
 
 app.get('/api/users', async (req, res) => {
     try {
-        // التحقق من الصلاحيات
         const token = req.cookies.token;
         if (!token) {
-            return res.status(401).json({ msg: 'غير مصرح' });
-        }
-
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.user.id);
-        if (!user || (user.role !== 'leader' && user.role !== 'assistant')) {
-            return res.status(403).json({ msg: 'غير مصرح' });
-        }
-
-        const users = await User.find().select('-password');
-        res.json(users);
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('خطأ في السيرفر');
-    }
-});
-
-app.post('/api/users/:id/promote', async (req, res) => {
-    try {
-        // التحقق من الصلاحيات (القائد فقط يمكنه الترقية)
-        const token = req.cookies.token;
-        if (!token) {
-            return res.status(401).json({ msg: 'غير مصرح' });
-        }
-
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const leader = await User.findById(decoded.user.id);
-        if (!leader || leader.role !== 'leader') {
-            return res.status(403).json({ msg: 'غير مصرح' });
-        }
-
-        const userToPromote = await User.findById(req.params.id);
-        if (!userToPromote) {
-            return res.status(404).json({ msg: 'المستخدم غير موجود' });
-        }
-
-        // ترقية المستخدم إلى admin
-        userToPromote.role = 'admin';
-        await userToPromote.save();
-
-        res.json({ success: true });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('خطأ في السيرفر');
-    }
-});
-
-app.get('/api/ratings', async (req, res) => {
-    try {
-        // التحقق من الصلاحيات (الإداريين فقط)
-        const token = req.cookies.token;
-        if (!token) {
-            return res.status(401).json({ msg: 'غير مصرح' });
-        }
-
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.user.id);
-        if (!user || user.role === 'user') {
-            return res.status(403).json({ msg: 'غير مصرح' });
-        }
-
-        const tickets = await SupportTicket.find({ 
-            rating: { $ne: null },
-            $or: [
-                { assignedTo: user._id },
-                { userId: user._id }
-            ]
-        }).populate('userId', 'username');
-
-        const ratings = tickets.map(ticket => ({
-            user: ticket.userId,
-            score: ticket.rating.score,
-            comment: ticket.rating.comment
-        }));
-
-        res.json(ratings);
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('خطأ في السيرفر');
-    }
-});
-
-// إنشاء الحسابات الافتراضية ثم تشغيل السيرفر
-createDefaultAccounts().then(() => {
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => console.log(`السيرفر يعمل على المنفذ ${PORT}`));
-});
+            return res
